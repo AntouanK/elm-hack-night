@@ -1,38 +1,31 @@
-module Rest (..) where
+module Rest exposing (..)
 
-import Effects exposing (Effects, Never)
-import Types exposing (..)
-import Html exposing (..)
-import Html.Attributes exposing (..)
-import Html.Events exposing (..)
-import Http
-import Json.Decode as Decode exposing ((:=),Decoder)
-import Signal exposing (message, forwardTo, Address)
+import Album.Rest as Album
+import Album.Types as Album
+import Array exposing (Array)
+import Http exposing (Error)
+import Json.Decode exposing (..)
 import Task
 import Types exposing (..)
 
 
-search : String -> Effects Action
+search : String -> Cmd Msg
 search query =
-  Http.get decodeAnswers (searchUrl query)
-    |> Task.toMaybe
-    |> Task.map RegisterAnswers
-    |> Effects.task
+    Http.get decodeAlbums (searchUrl query)
+        |> Task.perform Err Ok
+        |> Cmd.map SpotifyResponse
 
 
 searchUrl : String -> String
 searchUrl query =
-  Http.url
-    "https://api.spotify.com/v1/search"
-    [ ( "q", query )
-    , ( "type", "album" )
-    ]
+    Http.url "https://api.spotify.com/v1/search"
+        [ ( "q", query )
+        , ( "type", "album" )
+        , ( "market", "GB" )
+        , ( "limit", "50" )
+        ]
 
 
-decodeAnswers : Decoder (List Answer)
-decodeAnswers =
-  let
-    albumName =
-      Decode.map Answer ("name" := Decode.string)
-  in
-    (Decode.at [ "albums", "items" ] (Decode.list albumName))
+decodeAlbums : Decoder (Array Album.Model)
+decodeAlbums =
+    at [ "albums", "items" ] (array Album.decodeAlbum)

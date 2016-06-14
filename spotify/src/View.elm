@@ -1,76 +1,80 @@
-module View (root) where
+module View exposing (root)
 
-import Events exposing (onInput, onEnter)
+import Album.Types as Album
+import Album.View as Album
+import Array exposing (Array)
+import Dialog
+import Events exposing (onEnter)
 import Html exposing (..)
+import Html.App as Html
 import Html.Attributes exposing (..)
-import Signal exposing (message, forwardTo, Address)
+import Html.Events exposing (..)
 import Types exposing (..)
+import View.Bootstrap exposing (..)
 
 
-root : Signal.Address Action -> Model -> Html
-root address model =
-  div
-    [ style [ ( "margin", "20px 0" ) ] ]
-    [ bootstrap
-    , containerFluid
-        [ inputForm address model
-        , resultsList address model
+root : Model -> Html Msg
+root model =
+    div []
+        [ bootstrap
+        , container
+            [ inputForm model
+            , case model.results of
+                Nothing ->
+                    p [] [ text "Type a query." ]
+
+                Just (Err err) ->
+                    div [ class "alert alert-danger" ] [ text (toString err) ]
+
+                Just (Ok albums) ->
+                    albumsList albums
+            ]
+        , case model.results of
+            Just (Ok albums) ->
+                Dialog.view (showDialog albums)
+
+            _ ->
+                span [] []
         ]
-    ]
 
 
-inputForm address model =
-  input
-    [ type' "text"
-    , placeholder "Search for an album..."
-    , value model.query
-    , onInput address QueryChange
-    , onEnter address Query
-    ]
-    []
-
-
-resultsList address model =
-  let
-    toEntry answer =
-      div
-        [ class "col-xs-2 col-md-3" ]
-        [ resultView answer ]
-  in
-    row (List.map toEntry model.answers)
-
-
-resultView : Answer -> Html
-resultView answer =
-  div
-    [ class "panel panel-info" ]
-    [ div
-        [ class "panel-heading" ]
-        [ text "Album" ]
-    , div
-        [ class "panel-body"
-        , style [ ( "height", "10rem" ) ]
+inputForm : Model -> Html Msg
+inputForm model =
+    input
+        [ type' "text"
+        , placeholder "Search for an album..."
+        , value model.query
+        , onInput QueryChange
+        , onEnter Query
         ]
-        [ text answer.name ]
-    ]
+        []
 
 
+albumsList : Array Album.Model -> Html Msg
+albumsList albums =
+    let
+        toTile index album =
+            div [ class "col-xs-2 col-md-3" ]
+                [ Album.root album
+                    |> Html.map (AlbumMsg index)
+                ]
+    in
+        row
+            (albums
+                |> Array.indexedMap toTile
+                |> Array.toList
+            )
 
--- Bootstrap.
 
-
-containerFluid =
-  div [ class "container-fluid" ]
-
-
-row =
-  div [ class "row" ]
-
-
-bootstrap =
-  node
-    "link"
-    [ href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
-    , rel "stylesheet"
-    ]
-    []
+showDialog : Array Album.Model -> Maybe (Dialog.Config Msg)
+showDialog albums =
+    let
+        albumDialog : Int -> Album.Model -> Maybe (Dialog.Config Msg)
+        albumDialog index album =
+            Album.showDialog album
+                |> Dialog.mapMaybe (AlbumMsg index)
+    in
+        albums
+            |> Array.indexedMap albumDialog
+            |> Array.toList
+            |> Maybe.oneOf

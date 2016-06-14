@@ -1,18 +1,18 @@
-module Types (..) where
+module Types exposing (..)
 
-
-type alias Answer =
-  { name : String
-  }
+import Album.Types as Album
+import Array exposing (Array)
+import Http exposing (Error)
 
 
 type alias Model =
-  { query : String
-  , answers : List Answer
-  }
+    { query : String
+    , results : Maybe (Result Error (Array Album.Model))
+    }
 
 
-type Action
-  = QueryChange String
-  | Query
-  | RegisterAnswers (Maybe (List Answer))
+type Msg
+    = QueryChange String
+    | Query
+    | SpotifyResponse (Result Error (Array Album.Model))
+    | AlbumMsg Int Album.Msg
